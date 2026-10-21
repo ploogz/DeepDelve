@@ -559,6 +559,18 @@ body.cine #cineBars i { height: 11vh; } body.cine #hud { opacity: 0; transition:
   </div>
 </div>
 
+<script>
+// loading diagnostics: if a script fails to load or throws while booting, say so on the loading screen
+(function () {
+  var bad = [];
+  window.addEventListener('error', function (e) {
+    var t = e && e.target, m = document.getElementById('bootMsg');
+    if (t && (t.tagName === 'SCRIPT')) bad.push(t.getAttribute('src'));
+    if (m) m.textContent = bad.length ? 'Could not load: ' + bad.join(', ') : 'Error: ' + (e.message || 'unknown') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '');
+  }, true);
+  window.addEventListener('load', function () { setTimeout(function () { var m = document.getElementById('bootMsg'); if (!window.G && m) m.textContent = 'Game files not found. Make sure the js folder was uploaded next to index.html.'; }, 1500); });
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/utils/BufferGeometryUtils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/geometries/DecalGeometry.js"></script>

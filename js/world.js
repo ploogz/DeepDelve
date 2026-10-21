@@ -733,13 +733,13 @@ G.Lights = {
   pool: [], playerLight: null,
   init() {
     this.pool.forEach(l => G.scene.remove(l)); this.pool = [];
-    const n = { low: 5, med: 10, high: 20 }[G.settings.quality] || 10;
+    const n = { low: 5, med: 8, high: 12 }[G.settings.quality] || 8;
     for (let i = 0; i < n; i++) { const l = new THREE.PointLight(0xffffff, 0, 10, 2); G.scene.add(l); this.pool.push(l); }
     if (!this.playerLight) { this.playerLight = new THREE.PointLight(0xffb070, 1.0, 14, 1.8); }
     G.scene.add(this.playerLight);
     // projectiles carry their own moving light (fireballs, frost arrows, souls) instead of random flickers
-    (this.projPool || []).forEach(l => G.scene.remove(l)); this.projPool = []; for (let i = 0; i < (G.settings.quality === 'low' ? 2 : 8); i++) { const l = new THREE.PointLight(0xffffff, 0, 7, 2); G.scene.add(l); this.projPool.push(l); }
-    (this.fxPool || []).forEach(s => G.scene.remove(s.l)); this.fxPool = []; for (let i = 0; i < (G.settings.quality === 'low' ? 4 : 10); i++) { const l = new THREE.PointLight(0xffffff, 0, 8, 2); G.scene.add(l); this.fxPool.push({ l, t: 0, dur: 1, i: 0 }); }
+    (this.projPool || []).forEach(l => G.scene.remove(l)); this.projPool = []; for (let i = 0; i < (G.settings.quality === 'low' ? 1 : 3); i++) { const l = new THREE.PointLight(0xffffff, 0, 7, 2); G.scene.add(l); this.projPool.push(l); }
+    (this.fxPool || []).forEach(s => G.scene.remove(s.l)); this.fxPool = []; for (let i = 0; i < (G.settings.quality === 'low' ? 3 : 5); i++) { const l = new THREE.PointLight(0xffffff, 0, 8, 2); G.scene.add(l); this.fxPool.push({ l, t: 0, dur: 1, i: 0 }); }
     this.timer = 0;
   },
   flash(pos, color, intensity = 4, dist = 9, dur = 0.4) {
