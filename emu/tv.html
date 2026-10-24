@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Skull-64</title>
+<style>html,body{margin:0;background:#000;width:100%;height:100%;overflow:hidden}#game{width:640px;height:480px}</style>
+<script>
+/* The TV in the Grand Arcade runs this page in a hidden frame. It is EmulatorJS (GPL-3.0, https://github.com/EmulatorJS/EmulatorJS)
+   with the mupen64plus_next core, playing a ROM file the player picked from their own computer. Nothing is uploaded anywhere:
+   the game's picture and sound are streamed straight to party members' browsers, and their controller presses come back.
+   Every sound the emulator sends to the speakers goes through one gain (so the room can fade it with distance)
+   and also into a stream the TV can send to the rest of the party. */
+(() => {
+  const C = AudioNode.prototype.connect;
+  AudioNode.prototype.connect = function (dest, ...a) {
+    if (dest instanceof AudioDestinationNode) {
+      const ctx = dest.context;
+      if (!ctx.__tv) { const g = ctx.createGain(); C.call(g, dest); let msd = null; try { msd = ctx.createMediaStreamDestination(); C.call(g, msd); } catch (e) { } ctx.__tv = { g, msd }; window.TV_AUDIO = ctx; }
+      return C.call(this, ctx.__tv.g, ...a);
+    }
+    return C.call(this, dest, ...a);
+  };
+  // the N64 runs at 60 frames a second whatever the monitor does: on a 120/144/240 Hz screen the emulator would otherwise
+  // run one game frame per refresh (2-4x speed, garbled games, crackling sound). Frames are released on a steady 60 Hz grid.
+  const raf0 = window.requestAnimationFrame.bind(window), STEP = 1000 / 60; let grid = 0, queue = [];
+  const pump = (t) => { if (!grid || t - grid > 250) grid = t; if (t + 2 >= grid) { grid += STEP; if (grid < t - STEP) grid = t + STEP; const q = queue; queue = []; q.forEach(cb => { try { cb(t); } catch (e) { console.error(e); } }); } if (queue.length) raf0(pump); else pumping = false; };
+  let pumping = false;
+  window.requestAnimationFrame = (cb) => { queue.push(cb); if (!pumping) { pumping = true; raf0(pump); } return queue.length; };
+  window.cancelAnimationFrame = () => { };
+  // the emulator's WebGL canvas keeps its last picture (otherwise a capture between frames can grab an empty buffer: flicker)
+  const gc = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, attrs) { if (/webgl/i.test(type)) attrs = Object.assign({}, attrs, { preserveDrawingBuffer: true }); return gc.call(this, type, attrs); };
+})();
+// The TV's picture: copy the emulator's canvas only when the game has finished a new frame, and send exactly those frames.
+// Monitors faster than 60 Hz (or a frame the core skips) never show a half-drawn or blank image this way.
+window.TV_OUT = function () {
+  if (window.__out) return window.__out.stream;
+  const E = window.EJS_emulator, out = document.createElement('canvas'); out.width = 640; out.height = 480;
+  const x = out.getContext('2d', { alpha: false }); x.fillStyle = '#000'; x.fillRect(0, 0, 640, 480);
+  const stream = out.captureStream(0), track = stream.getVideoTracks()[0];
+  let last = -1;
+  const tick = () => {
+    requestAnimationFrame(tick);
+    const c = E && E.canvas; if (!c || !E.started || !c.width) return;
+    let n = -1; try { n = E.gameManager.functions.getFrameNum(); } catch (e) { n = performance.now(); }
+    if (n === last) return; last = n;
+    if (out.width !== c.width || out.height !== c.height) { out.width = c.width; out.height = c.height; }
+    x.drawImage(c, 0, 0); if (track.requestFrame) track.requestFrame();
+  };
+  requestAnimationFrame(tick);
+  window.__out = { out, stream };
+  return stream;
+};
+</script>
+</head>
+<body>
+<div id="game"></div>
+<script>
+const q = new URLSearchParams(location.search);
+window.EJS_player = '#game';
+window.EJS_core = 'n64';
+window.EJS_gameUrl = q.get('rom');
+window.EJS_gameName = (q.get('name') || 'game').replace(/\.[^.]+$/, '');
+window.EJS_pathtodata = 'data/';
+window.EJS_startOnLoaded = true;
+window.EJS_DEBUG_XX = true;               // load the plain source files (no minified bundle is shipped)
+window.EJS_disableAutoLang = false;       // stay in English, don't fetch translations
+window.EJS_noAutoFocus = true;
+window.EJS_volume = 1;
+window.EJS_defaultControls = { 0: {}, 1: {}, 2: {}, 3: {} };   // the room drives every controller itself
+window.EJS_defaultOptions = { 'save-save-interval': '30' };   // in-game saves are written to this browser every 30 s
+window.EJS_paths = { 'mupen64plus_next-wasm.data': 'data/cores/mupen64plus_next-core.wasm', 'mupen64plus_next-legacy-wasm.data': 'data/cores/mupen64plus_next-legacy-core.wasm' };   // the cores are 7z archives, kept under a .wasm name so any static host serves them
+window.EJS_ready = false;
+</script>
+<script src="data/loader.js"></script>
+</body>
+</html>
